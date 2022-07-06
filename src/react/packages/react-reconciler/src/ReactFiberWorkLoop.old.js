@@ -517,12 +517,17 @@ export function scheduleUpdateOnFiber(
 ): FiberRoot | null {
   checkForNestedUpdates();
 
+  // 1、更新fiber以及fiber子节点的lane，megelanes
+  // 2、返根节点，FiberRoot
   const root = markUpdateLaneFromFiberToRoot(fiber, lane);
+  console.log('FiberRoot', root); // wj-log
+  // 如果根节点是空就不用继续了
   if (root === null) {
     return null;
   }
 
   // Mark that the root has a pending update.
+  // 给fiber节点加上更新的标记，比如root.pendingLanes |= lane
   markRootUpdated(root, lane, eventTime);
 
   if (
@@ -660,7 +665,7 @@ function markUpdateLaneFromFiberToRoot(
   lane: Lane,
 ): FiberRoot | null {
   // Update the source fiber's lanes
-  sourceFiber.lanes = mergeLanes(sourceFiber.lanes, lane);
+  sourceFiber.lanes = mergeLanes(sourceFiber.lanes, lane); // 通过merge加一个新的lane进来，之前的不能丢掉
   let alternate = sourceFiber.alternate;
   if (alternate !== null) {
     alternate.lanes = mergeLanes(alternate.lanes, lane);
@@ -840,7 +845,7 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
     }
     newCallbackNode = scheduleCallback(
       schedulerPriorityLevel,
-      performConcurrentWorkOnRoot.bind(null, root),
+      performConcurrentWorkOnRoot.bind(null, root), // 要调度的任务，用bind是应为要用全局的
     );
   }
 
@@ -898,6 +903,7 @@ function performConcurrentWorkOnRoot(root, didTimeout) {
   // TODO: We only check `didTimeout` defensively, to account for a Scheduler
   // bug we're still investigating. Once the bug in Scheduler is fixed,
   // we can remove this, since we track expiration ourselves.
+  // 判断是否有阻塞
   const shouldTimeSlice =
     !includesBlockingLane(root, lanes) &&
     !includesExpiredLane(root, lanes) &&
@@ -979,6 +985,7 @@ function performConcurrentWorkOnRoot(root, didTimeout) {
     }
   }
 
+  // 走到任务调度
   ensureRootIsScheduled(root, now());
   if (root.callbackNode === originalCallbackNode) {
     // The task node scheduled for this root is the same one that's
@@ -1840,6 +1847,7 @@ function performUnitOfWork(unitOfWork: Fiber): void {
     next = beginWork(current, unitOfWork, subtreeRenderLanes);
     stopProfilerTimerIfRunningAndRecordDelta(unitOfWork, true);
   } else {
+    // 更新自己（检查子节点是否需要更新：三个条件满足一个即可，props，context，是否有别的update）
     next = beginWork(current, unitOfWork, subtreeRenderLanes);
   }
 
@@ -1849,6 +1857,7 @@ function performUnitOfWork(unitOfWork: Fiber): void {
     // If this doesn't spawn new work, complete the current work.
     completeUnitOfWork(unitOfWork);
   } else {
+    // 更新workProgress
     workInProgress = next;
   }
 
